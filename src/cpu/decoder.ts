@@ -102,6 +102,15 @@ export function decode(inst: number): DecodedInst {
     }
 
     case Opcode.OP: {
+      // M extension: funct7 = 0x01
+      if (funct7 === 0x01) {
+        const mNames: Record<number, string> = {
+          0: 'mul', 1: 'mulh', 2: 'mulhsu', 3: 'mulhu',
+          4: 'div', 5: 'divu', 6: 'rem', 7: 'remu',
+        };
+        return { type: InstType.R, opcode, rd, rs1, rs2, funct3, funct7,
+          imm: 0, name: mNames[funct3] || 'm??' };
+      }
       const names: Record<string, string> = {
         '0-0': 'add', '0-32': 'sub',
         '1-0': 'sll', '2-0': 'slt', '3-0': 'sltu',

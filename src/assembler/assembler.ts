@@ -180,21 +180,59 @@ export function assemble(source: string): { code: number[]; errors: string[]; la
         case 'or': encoded = encR(0, parseReg(args[2]), parseReg(args[1]), 6, parseReg(args[0])); break;
         case 'and': encoded = encR(0, parseReg(args[2]), parseReg(args[1]), 7, parseReg(args[0])); break;
 
+        // M extension
+        case 'mul': encoded = encR(1, parseReg(args[2]), parseReg(args[1]), 0, parseReg(args[0])); break;
+        case 'mulh': encoded = encR(1, parseReg(args[2]), parseReg(args[1]), 1, parseReg(args[0])); break;
+        case 'mulhsu': encoded = encR(1, parseReg(args[2]), parseReg(args[1]), 2, parseReg(args[0])); break;
+        case 'mulhu': encoded = encR(1, parseReg(args[2]), parseReg(args[1]), 3, parseReg(args[0])); break;
+        case 'div': encoded = encR(1, parseReg(args[2]), parseReg(args[1]), 4, parseReg(args[0])); break;
+        case 'divu': encoded = encR(1, parseReg(args[2]), parseReg(args[1]), 5, parseReg(args[0])); break;
+        case 'rem': encoded = encR(1, parseReg(args[2]), parseReg(args[1]), 6, parseReg(args[0])); break;
+        case 'remu': encoded = encR(1, parseReg(args[2]), parseReg(args[1]), 7, parseReg(args[0])); break;
+
         // Pseudo-instructions
         case 'nop': encoded = 0x00000013; break;
         case 'li': {
           const val = parseImm(args[1]);
           const rd = parseReg(args[0]);
-          if ((val & 0xFFF) === 0 || (val >= -2048 && val <= 2047)) {
-            encoded = val >= -2048 && val <= 2047 ? encI(0, 0, rd, val) : encU(0x37, rd, val);
+          if (val >= -2048 && val <= 2047) {
+            encoded = encI(0, 0, rd, val);
+          } else if ((val & 0xFFF) === 0) {
+            encoded = encU(0x37, rd, val);
           } else {
-            // lui + addi
             code.push(encU(0x37, rd, val));
             encoded = encI(0, rd, rd, val & 0xFFF);
           }
           break;
         }
+        case 'la': {
+          const rd = parseReg(args[0]);
+          const addr = resolveImm(args[1], offset);
+          if (addr >= -2048 && addr <= 2047) {
+            encoded = encI(0, 0, rd, addr);
+          } else {
+            code.push(encU(0x17, rd, addr));
+            encoded = encI(0, rd, rd, addr & 0xFFF);
+          }
+          break;
+        }
         case 'mv': encoded = encI(0, parseReg(args[1]), parseReg(args[0]), 0); break;
+        case 'not': encoded = encI(4, parseReg(args[1]), parseReg(args[0]), -1); break;
+        case 'neg': encoded = encR(0x20, parseReg(args[1]), 0, 0, parseReg(args[0])); break;
+        case 'seqz': encoded = encI(3, parseReg(args[1]), parseReg(args[0]), 1); break;
+        case 'snez': encoded = encR(0, 0, parseReg(args[1]), 3, parseReg(args[0])); break;
+        case 'sltz': encoded = encR(0, 0, parseReg(args[0]), 2, parseReg(args[0])); break;
+        case 'sgtz': encoded = encR(0, parseReg(args[0]), 0, 2, parseReg(args[0])); break;
+        case 'beqz': encoded = encB(0, parseReg(args[0]), 0, resolveImm(args[1], offset)); break;
+        case 'bnez': encoded = encB(1, parseReg(args[0]), 0, resolveImm(args[1], offset)); break;
+        case 'blez': encoded = encB(5, 0, parseReg(args[0]), resolveImm(args[1], offset)); break;
+        case 'bgez': encoded = encB(5, parseReg(args[0]), 0, resolveImm(args[1], offset)); break;
+        case 'bltz': encoded = encB(4, parseReg(args[0]), 0, resolveImm(args[1], offset)); break;
+        case 'bgtz': encoded = encB(4, 0, parseReg(args[0]), resolveImm(args[1], offset)); break;
+        case 'bgt': encoded = encB(4, parseReg(args[1]), parseReg(args[0]), resolveImm(args[2], offset)); break;
+        case 'ble': encoded = encB(5, parseReg(args[1]), parseReg(args[0]), resolveImm(args[2], offset)); break;
+        case 'bgtu': encoded = encB(6, parseReg(args[1]), parseReg(args[0]), resolveImm(args[2], offset)); break;
+        case 'bleu': encoded = encB(7, parseReg(args[1]), parseReg(args[0]), resolveImm(args[2], offset)); break;
         case 'j': encoded = encJ(0, resolveImm(args[0], offset)); break;
         case 'jr': encoded = ((0 & 0xFFF) << 20) | (parseReg(args[0]) << 15) | (0 << 12) | (0 << 7) | 0x67; break;
         case 'ret': encoded = encJ(0, 0); encoded = ((0 & 0xFFF) << 20) | (1 << 15) | (0 << 12) | (0 << 7) | 0x67; break;

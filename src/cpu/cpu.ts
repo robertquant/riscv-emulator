@@ -155,6 +155,55 @@ export class CPU {
       case 'or': this.regs.set(rd, this.regs.get(rs1) | this.regs.get(rs2)); break;
       case 'and': this.regs.set(rd, this.regs.get(rs1) & this.regs.get(rs2)); break;
 
+      // M extension (multiply/divide)
+      case 'mul': {
+        const a = this.regs.get(rs1), b = this.regs.get(rs2);
+        this.regs.set(rd, Math.imul(a, b));
+        break;
+      }
+      case 'mulh': {
+        const a = this.regs.get(rs1), b = this.regs.get(rs2);
+        const hi = BigInt(a) * BigInt(b);
+        this.regs.set(rd, Number((hi >> 32n) & 0xFFFFFFFFn) | 0);
+        break;
+      }
+      case 'mulhu': {
+        const a = this.regs.getUnsigned(rs1), b = this.regs.getUnsigned(rs2);
+        const hi = BigInt(a) * BigInt(b);
+        this.regs.set(rd, Number((hi >> 32n) & 0xFFFFFFFFn) | 0);
+        break;
+      }
+      case 'mulhsu': {
+        const a = BigInt(this.regs.get(rs1)), b = BigInt(this.regs.getUnsigned(rs2));
+        const hi = a * b;
+        this.regs.set(rd, Number((hi >> 32n) & 0xFFFFFFFFn) | 0);
+        break;
+      }
+      case 'div': {
+        const a = this.regs.get(rs1), b = this.regs.get(rs2);
+        if (b === 0) this.regs.set(rd, -1);
+        else if (a === -2147483648 && b === -1) this.regs.set(rd, -2147483648);
+        else this.regs.set(rd, Math.trunc(a / b) | 0);
+        break;
+      }
+      case 'divu': {
+        const a = this.regs.getUnsigned(rs1), b = this.regs.getUnsigned(rs2);
+        this.regs.set(rd, b === 0 ? -1 : (a / b) | 0);
+        break;
+      }
+      case 'rem': {
+        const a = this.regs.get(rs1), b = this.regs.get(rs2);
+        if (b === 0) this.regs.set(rd, a);
+        else if (a === -2147483648 && b === -1) this.regs.set(rd, 0);
+        else this.regs.set(rd, (a % b) | 0);
+        break;
+      }
+      case 'remu': {
+        const a = this.regs.getUnsigned(rs1), b = this.regs.getUnsigned(rs2);
+        this.regs.set(rd, b === 0 ? a : (a % b) | 0);
+        break;
+      }
+
       // System
       case 'ecall':
         this.handleEcall();
@@ -179,10 +228,13 @@ export class CPU {
 
   private handleEcall(): void {
     const a0 = this.regs.get(10);
+    const a1 = this.regs.get(11);
     const a7 = this.regs.get(17);
-    // Simple syscall: a7=1 = print int, a7=4 = print string, a7=10 = exit, a7=64 = write
     switch (a7) {
       case 1: // print integer
+        this.uartOutput?.(String(a0));
+        break;
+      case 2: // print float (simplified - just print int)
         this.uartOutput?.(String(a0));
         break;
       case 4: { // print string at a0
@@ -197,15 +249,28 @@ export class CPU {
       case 10: // exit
         this.running = false;
         break;
-      case 64: { // write(fd=unused, buf=a1, len=a2)
-        const buf = a0; // Actually a1 for buf, but simplified
+      case 11: // print char
+        this.uartOutput?.(String.fromCharCode(a0 & 0xFF));
+        break;
+      case 34: // print hex
+        this.uartOutput?.('0x' + (a0 >>> 0).toString(16));
+        break;
+      case 35: // print binary
+        this.uartOutput?.('0b' + (a0 >>> 0).toString(2));
+        break;
+      case 64: { // write(fd, buf, len)
         const len = this.regs.get(12);
         for (let i = 0; i < len; i++) {
-          this.uartOutput?.(String.fromCharCode(this.memory.readByte(this.regs.get(11) + i)));
+          this.uartOutput?.(String.fromCharCode(this.memory.readByte(a1 + i)));
         }
         this.regs.set(10, len);
         break;
       }
+      case 93: // exit2 (Linux-style)
+        this.running = false;
+        break;
+      default:
+        break;
     }
   }
 }

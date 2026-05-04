@@ -25,6 +25,8 @@ export function disassemble(inst: number, pc: number): string {
       return `${addr}  ${hex}  ${d.name} ${regName(d.rd)}, ${regName(d.rs1)}, ${d.imm}`;
     case 'add': case 'sub': case 'sll': case 'slt': case 'sltu':
     case 'xor': case 'srl': case 'sra': case 'or': case 'and':
+    case 'mul': case 'mulh': case 'mulhsu': case 'mulhu':
+    case 'div': case 'divu': case 'rem': case 'remu':
       return `${addr}  ${hex}  ${d.name} ${regName(d.rd)}, ${regName(d.rs1)}, ${regName(d.rs2)}`;
     case 'ecall': return `${addr}  ${hex}  ecall`;
     case 'ebreak': return `${addr}  ${hex}  ebreak`;
