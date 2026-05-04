@@ -1,0 +1,20 @@
+{
+  "name": "riscv-emulator",
+  "version": "1.0.0",
+  "description": "RISC-V CPU emulator written from scratch in TypeScript - for learning CPU architecture",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@xterm/xterm": "^5.5.0",
+    "@xterm/addon-fit": "^0.10.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "vite": "^5.4.0"
+  }
+}
