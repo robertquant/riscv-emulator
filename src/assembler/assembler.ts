@@ -240,22 +240,62 @@ export function assemble(source: string): { code: number[]; errors: string[]; la
         case 'ecall': encoded = 0x00000073; break;
         case 'ebreak': encoded = 0x00100073; break;
 
-        // Data directives
+        // Section directives (ignored — single address space)
+        case '.text':
+        case '.data':
+        case '.bss':
+        case '.section':
+        case '.globl':
+        case '.global':
+        case '.type':
+        case '.size':
+        case '.file':
+        case '.ident':
+        case '.option':
+          continue;
+
+        case '.align': {
+          const align = parseImm(args[0]);
+          const wordSize = 1 << align;
+          while ((code.length * 4) % wordSize !== 0) code.push(0);
+          continue;
+        }
+
+        case '.space': {
+          const size = parseImm(args[0]);
+          for (let i = 0; i < size; i++) code.push(0);
+          continue;
+        }
+
+        case '.zero': {
+          const count = parseImm(args[0]);
+          for (let i = 0; i < count; i++) code.push(0);
+          continue;
+        }
+
         case '.word':
           encoded = parseImm(args[0]);
           break;
-        case '.byte':
-          // Handle .byte by encoding as a word (simplified)
-          encoded = parseImm(args[0]) & 0xFF;
-          break;
+        case '.byte': {
+          const bytes = args.map(a => parseImm(a) & 0xFF);
+          for (const b of bytes) code.push(b);
+          continue;
+        }
+        case '.half': {
+          const vals = args.map(a => parseImm(a) & 0xFFFF);
+          for (const v of vals) code.push(v);
+          continue;
+        }
         case '.string':
         case '.asciz':
         case '.ascii': {
-          const str = args.join(' ').replace(/^"|"$/g, '');
+          let str = args.join(' ').replace(/^"|"$/g, '');
+          // Handle escape sequences
+          str = str.replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\\0/g, '\0').replace(/\\\\/g, '\\');
           for (let c = 0; c < str.length; c++) {
             code.push(str.charCodeAt(c));
           }
-          if (op === '.asciz') code.push(0);
+          if (op === '.asciz' || op === '.string') code.push(0);
           continue;
         }
 
